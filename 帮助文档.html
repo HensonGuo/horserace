@@ -1,0 +1,115 @@
+<html lang="en"><head>
+    <meta charset="UTF-8">
+    <title></title>
+<style id="system" type="text/css">h1,h2,h3,h4,h5,h6,p,blockquote {    margin: 0;    padding: 0;}body {    font-family: "Helvetica Neue", Helvetica, "Hiragino Sans GB", Arial, sans-serif;    font-size: 13px;    line-height: 18px;    color: #737373;    margin: 10px 13px 10px 13px;}a {    color: #0069d6;}a:hover {    color: #0050a3;    text-decoration: none;}a img {    border: none;}p {    margin-bottom: 9px;}h1,h2,h3,h4,h5,h6 {    color: #404040;    line-height: 36px;}h1 {    margin-bottom: 18px;    font-size: 30px;}h2 {    font-size: 24px;}h3 {    font-size: 18px;}h4 {    font-size: 16px;}h5 {    font-size: 14px;}h6 {    font-size: 13px;}hr {    margin: 0 0 19px;    border: 0;    border-bottom: 1px solid #ccc;}blockquote {    padding: 13px 13px 21px 15px;    margin-bottom: 18px;    font-family:georgia,serif;    font-style: italic;}blockquote:before {    content:"C";    font-size:40px;    margin-left:-10px;    font-family:georgia,serif;    color:#eee;}blockquote p {    font-size: 14px;    font-weight: 300;    line-height: 18px;    margin-bottom: 0;    font-style: italic;}code, pre {    font-family: Monaco, Andale Mono, Courier New, monospace;}code {    background-color: #fee9cc;    color: rgba(0, 0, 0, 0.75);    padding: 1px 3px;    font-size: 12px;    -webkit-border-radius: 3px;    -moz-border-radius: 3px;    border-radius: 3px;}pre {    display: block;    padding: 14px;    margin: 0 0 18px;    line-height: 16px;    font-size: 11px;    border: 1px solid #d9d9d9;    white-space: pre-wrap;    word-wrap: break-word;}pre code {    background-color: #fff;    color:#737373;    font-size: 11px;    padding: 0;}@media screen and (min-width: 768px) {    body {        width: 748px;        margin:10px auto;    }}</style><style id="custom" type="text/css"></style></head>
+<body marginheight="0"><h1>赛马游戏配置指引</h1>
+<hr>
+<h2>原理</h2>
+<p>应用启动后下载各种资源及配置；检测是否有调试文件；如有调试文件，进入调试模式，读取调试文件模拟数据；否则通过cgi接口获取网络数据。上面的流程OK后，构建游戏场景及马匹，收到数据根据下一轮抽奖间隔时间（<strong>awardTimeInterval</strong>）进行倒计时，倒计时完成，马匹开始跑，同时间隔一段时间请求一次数据，如收到新的数据（及期数改变[<strong>periodDate</strong>]）,抽奖结果也出来了（<strong>awardNumbers</strong>），模拟结果至结束当前轮；同时再次开启下一轮的模拟。
+
+
+</p>
+<h2>CGI配置及参数详解</h2>
+<h3>1. 使用CGI接口</h3>
+<p><strong>地址配置</strong>：先删除调试文件debug.txt，在GameController.js文件中第11行修改url地址:
+</p>
+<pre><code class="lang-javascript">  var url = '';</code></pre>
+<p><strong>请求间隔</strong>：游戏倒计时完成后，会间隔一段时间请求一次CGI数据，轮询请求，保证能以较小误差及时获得最新结果；这个间隔时间设置的3000ms；此参考的是<a href="http://tq50.com/">http://tq50.com/</a> 上赛马游戏的间隔请求，这个可以根据服务器的承载压力自行修改，GameController.js文件中第9行：
+</p>
+<pre><code class="lang-javascript">  var requestDataTimer = new Timer(3000);</code></pre>
+<p><strong>数据格式</strong>：目前配置的是jsonp格式的，也可以换成json格式的，根据服务端的数据格式修改；在GetResult.js文件中第7行：
+</p>
+<pre><code class="lang-javascript">  var request = {type:'GET', dataType:'jsonp', jsonp:'callback', success:onSuccess, error:onFail}</code></pre>
+<h3>2. 参数解释</h3>
+<pre><code class="lang-javascript">{
+    "current": {
+        "awardTime": "2016-07-08 20:00:00",
+        "periodDate": "2016070866",
+        "awardNumbers": "1,2,3,4,5,6,7,8"
+    },
+    "next": {
+        "awardTimeInterval": "3000",
+        "awardTime": "2016-07-08 20:10:00",
+        "periodDate": "2016070867"
+    }
+}</code></pre>
+<ul>
+<li><p>current:当前轮抽奖</p>
+<ul>
+<li>awardTime ：抽奖时间</li>
+<li>periodDate ：期数</li>
+<li>awardNumbers ：中奖号码（上一轮）</li>
+</ul>
+</li>
+<li><p>next：下一轮抽奖</p>
+<ul>
+<li>awardTimeInterval ：距离下一轮抽奖间隔时间</li>
+<li>awardTime ：抽奖时间</li>
+<li>periodDate ：期数</li>
+</ul>
+</li>
+</ul>
+<p>服务端数据请照此格式发送
+
+
+</p>
+<h2>使用调试模式测试</h2>
+<p>在未接入服务端数据的时候可以使用调试文件测试（debug.txt），其测试数据自己可以
+在调试文件中修改，具体修改请参照上面的参数解释；在debug文件当中配置了
+3次模拟数据--seq1、seq2、seq3；模拟数据分别将在一定的间隔时间内触发，其控制
+由游戏内代码控制，请查看GameController.js文件的reloadData()方法：
+</p>
+<pre><code class="lang-javascript">function reloadData()
+{
+    if (debugData)
+    {
+        date = new Date();
+        appRunTime = (date.getTime() - appStartTime) / 1000;
+        if (appRunTime &lt; 10)
+        {
+            getResult.data = debugData.seq1;
+        }
+        else if(appRunTime &lt; 30)
+        {
+            getResult.data = debugData.seq2;
+            if (! debugData.seq3){excuteAll = true;}
+        }
+        else if( appRunTime &lt; 90)
+        {
+            getResult.data = debugData.seq3;
+            if (! debugData.seq4){excuteAll = true;}
+        }
+        onNewData(null)
+    }
+    else
+    {
+        getResult.loadData()
+    }
+}</code></pre>
+<h4>解释</h4>
+<ul>
+<li>1.游戏初始化时会将模拟数据seq1赋值到数据结果，同时根据seq1的next中的awardTimeInterval进行 倒计时，倒计时完成开跑；</li>
+<li>2.如果运行至10s和30s之内，将新的数据seq2赋值给数据结果，这时接收到结果， seq2的期号与上一期的期号（seq1）改变，
+代表是新的数据，模拟将根据seq2中的current的awardNumbers模 拟结果至结束；结果展示完后将根据seq2的next中的
+awardTimeInterval再次倒计时，倒计时完成开跑；</li>
+<li>3.seq3重复2的逻辑；</li>
+<li>4.测试数据全部跑完游戏停止</li>
+</ul>
+<p>自己可以修改上面赋值数据的时间间隔；但不宜修改过小，应为模拟赛马的过程需要一定的时间，
+这个时间不宜小于模拟时间，请设置在30s以上
+
+</p>
+<h2>更新记录</h2>
+<h3>V2.1更新</h3>
+<ul>
+<li>1.增加赛马声音的节奏</li>
+<li>2.增加调试测试指引</li>
+</ul>
+<h3>V2.0更新</h3>
+<ul>
+<li>1.手机屏幕尺寸适配</li>
+<li>2.结果面板修改</li>
+<li>3.添加倒计时音效</li>
+<li>4.静音按钮切换问题</li>
+</ul>
+</body></html>
